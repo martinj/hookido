@@ -8,7 +8,11 @@ describe('SNS', () => {
 	let sns;
 
 	beforeEach(() => {
-		sns = new SNS('arn:aws:sns:eu-west-1:111111111111:mytopic', {region: 'eu-west-1'});
+		sns = new SNS({
+			region: 'eu-west-1',
+			accessKeyId: 'a',
+			secretAccessKey: 'a'
+		});
 	});
 
 	describe('#validatePayload', () => {
@@ -70,7 +74,7 @@ describe('SNS', () => {
 				.reply(200);
 
 			return sns
-				.subscribe('HTTP', 'http://foobar.com')
+				.subscribe('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foobar.com')
 				.then(() => {
 
 					expect(req.isDone()).to.be.true;
@@ -95,7 +99,7 @@ describe('SNS', () => {
 				.reply(200);
 
 			return sns
-				.setTopicAttributes({
+				.setTopicAttributes('arn:aws:sns:eu-west-1:111111111111:mytopic', {
 					HTTPSuccessFeedbackRoleArn: 'arn:aws:iam::xxxx:role/myRole',
 					HTTPSuccessFeedbackSampleRate: '100'
 				})
@@ -110,4 +114,147 @@ describe('SNS', () => {
 
 	});
 
+	describe('#setSubscriptionAttributes', () => {
+
+		afterEach(() => nock.cleanAll());
+
+		it('sends setSubscriptionAttributes request', () => {
+
+			const firstReq = nock('https://sns.eu-west-1.amazonaws.com:443')
+				.post('/', 'Action=SetSubscriptionAttributes&AttributeName=foo&AttributeValue=bar&SubscriptionArn=arn&Version=2010-03-31')
+				.reply(200);
+
+			const secondReq = nock('https://sns.eu-west-1.amazonaws.com:443')
+				.post('/', 'Action=SetSubscriptionAttributes&AttributeName=bar&AttributeValue=foo&SubscriptionArn=arn&Version=2010-03-31')
+				.reply(200);
+
+			return sns
+				.setSubscriptionAttributes('arn', {
+					foo: 'bar',
+					bar: 'foo'
+				})
+				.then(() => {
+
+					expect(firstReq.isDone()).to.be.true;
+					expect(secondReq.isDone()).to.be.true;
+
+				});
+
+		});
+
+	});
+
+	describe('#findSubscriptionArn', () => {
+
+		afterEach(() => nock.cleanAll());
+
+		it('rejects with error containing code NOT_FOUND if not found', () => {
+
+			nock('https://sns.eu-west-1.amazonaws.com:443')
+				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
+				.reply(200, `
+					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
+						<ListSubscriptionsByTopicResult>
+							<Subscriptions>
+								<member>
+									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
+									<Protocol>email</Protocol>
+									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
+									<Owner>123456789012</Owner>
+									<Endpoint>example@amazon.com</Endpoint>
+								</member>
+							</Subscriptions>
+						</ListSubscriptionsByTopicResult>
+					 </ListSubscriptionsByTopicResponse>
+				`);
+
+			return sns
+				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
+				.catch((err) => {
+
+					expect(err.code).to.equal('NOT_FOUND');
+
+				});
+
+		});
+
+		it('handles NextToken for paged results', () => {
+
+			nock('https://sns.eu-west-1.amazonaws.com:443')
+				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
+				.reply(200, `
+					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
+						<ListSubscriptionsByTopicResult>
+							<Subscriptions>
+								<member>
+									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
+									<Protocol>email</Protocol>
+									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
+									<Owner>123456789012</Owner>
+									<Endpoint>fo@foo.com</Endpoint>
+								</member>
+							</Subscriptions>
+							<NextToken>foo</NextToken>
+						</ListSubscriptionsByTopicResult>
+					 </ListSubscriptionsByTopicResponse>
+				`)
+				.post('/', 'Action=ListSubscriptionsByTopic&NextToken=foo&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
+				.reply(200, `
+					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
+						<ListSubscriptionsByTopicResult>
+							<Subscriptions>
+								<member>
+									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
+									<Protocol>http</Protocol>
+									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
+									<Owner>123456789012</Owner>
+									<Endpoint>http://foo.com/bar</Endpoint>
+								</member>
+							</Subscriptions>
+							<NextToken>foo</NextToken>
+						</ListSubscriptionsByTopicResult>
+					 </ListSubscriptionsByTopicResponse>
+				`);
+
+			return sns
+				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
+				.then((arn) => {
+
+					expect(arn).to.equal('arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca');
+
+				});
+
+		});
+
+		it('resolves with the subscription arn if found', () => {
+
+			nock('https://sns.eu-west-1.amazonaws.com:443')
+				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
+				.reply(200, `
+					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
+						<ListSubscriptionsByTopicResult>
+							<Subscriptions>
+								<member>
+									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
+									<Protocol>http</Protocol>
+									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
+									<Owner>123456789012</Owner>
+									<Endpoint>http://foo.com/bar</Endpoint>
+								</member>
+							</Subscriptions>
+						</ListSubscriptionsByTopicResult>
+					 </ListSubscriptionsByTopicResponse>
+				`);
+
+			return sns
+				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
+				.then((arn) => {
+
+					expect(arn).to.equal('arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca');
+
+				});
+
+		});
+
+	});
 });

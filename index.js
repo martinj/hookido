@@ -6,14 +6,16 @@ const SNS = require('./lib/sns');
 const handlers = require('./handlers');
 
 const validOptions = Joi.object({
-	topicArn: Joi.string().required(),
+	topic: Joi.object({
+		arn: Joi.string().required(),
+		attributes: Joi.object().optional().description('Automatically sets topic attributes on onPostStart'),
+		subscribe: Joi.object({
+			endpoint: Joi.string().required(),
+			protocol: Joi.string().valid('HTTP', 'HTTPS').required(),
+			attributes: Joi.object().optional().description('Set subscription attributes, only used if the plugin handles the subscription confirmation and subscription does not exist')
+		}).optional().description('Automatically subscribe if subscription does not exit on onPostStart')
+	}).optional(),
 	skipPayloadValidation: Joi.boolean().default(false).optional().description('Skip Signature validation on SNS message'),
-	subscribe: Joi.object({
-		endpoint: Joi.string().required(),
-		protocol: Joi.string().valid('HTTP', 'HTTPS').required(),
-		attributes: Joi.object({}).optional().description('Set subscription attributes')
-	}).optional().description('Automatically subscribe onPostStart'),
-	topicAttributes: Joi.object().optional().description('Automatically sets topic attributes on onPostStart'),
 	aws: Joi.object().optional().description('AWS config used for SNS'),
 	route: Joi.object().optional().description('Overrides for the default route configuration'),
 	handlers: Joi.object({
@@ -26,24 +28,31 @@ exports.register = function (server, opts, next) {
 	const results = Joi.validate(opts, validOptions);
 	Hoek.assert(!results.error, results.error);
 
-	const sns = new SNS(opts.topicArn, opts.aws);
+	const sns = new SNS(opts.aws);
 	server.expose('sns', sns);
 
-	if (opts.subscribe) {
+	const subscribe = Hoek.reach(opts, 'topic.subscribe');
+	if (subscribe) {
 		server.ext('onPostStart', (srv, next) => {
 			sns
-				.subscribe(opts.subscribe.protocol, opts.subscribe.endpoint)
-				.then(() => server.log(['hookido', 'subscribe'], 'Subscription request sent'))
+				.findSubscriptionArn(opts.topic.arn, subscribe.protocol, subscribe.endpoint)
+				.then(() => server.log(['hookido', 'subscribe'], 'Subscription already exists'))
+				.catch({code: 'NOT_FOUND'}, () => {
+					return sns
+						.subscribe(opts.topic.arn, subscribe.protocol, subscribe.endpoint)
+						.then(() => server.log(['hookido', 'subscribe'], 'Subscription request sent'));
+				})
 				.catch((err) => server.log(['hookido', 'subscribe', 'error'], err));
 
 			next();
 		});
 	}
 
-	if (opts.topicAttributes) {
+	const topicAttributes = Hoek.reach(opts, 'topic.attributes');
+	if (topicAttributes) {
 		server.ext('onPostStart', (srv, next) => {
 			sns
-				.setTopicAttributes(opts.topicAttributes)
+				.setTopicAttributes(opts.topic.arn, topicAttributes)
 				.then(() => server.log(['hookido', 'setTopicAttributes'], 'topicAttributes was updated'))
 				.catch((err) => server.log(['hookido', 'setTopicAttributes', 'error'], err));
 
@@ -57,7 +66,7 @@ exports.register = function (server, opts, next) {
 		config: {
 			auth: false,
 			description: 'SNS webhook endpoint',
-			handler: handlers.hook(opts.handlers, opts.skipPayloadValidation)
+			handler: handlers.hook(opts)
 		}
 	}, opts.route || {}));
 
