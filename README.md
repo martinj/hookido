@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/martinj/hookido.svg?branch=master)](https://travis-ci.org/martinj/hookido)
+
 # hookido
 
 [Hapi](http://hapijs.com) plugin for handling [AWS SNS](https://aws.amazon.com/sns/) http(s) subscriptions aka webhooks
