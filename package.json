@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "eslint --ext '.js' lib test *.js",
     "watch": "mocha --watch 'test/**/*.js' 'lib/**/*.js' '*.js' --timeout 500",
-    "test": "npm run lint && NODE_ENV=test istanbul cover _mocha -- -u exports -R spec --timeout 3000 test/**/*.test.js",
+    "test": "npm run lint && NODE_ENV=test istanbul cover _mocha -- -u exports -R spec --timeout 3000 test/*.test.js test/**/*.test.js",
     "mocha-only-detect": "mocha-only-detector-glob **/*.test.js",
     "ci": "npm test --coverage && istanbul report cobertura",
     "changelog": "git log `git describe --tags --abbrev=0`..HEAD --pretty=format:\"  * %s\"",

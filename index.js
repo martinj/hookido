@@ -32,20 +32,26 @@ exports.register = function (server, opts, next) {
 	server.expose('sns', sns);
 
 	const subscribe = Hoek.reach(opts, 'topic.subscribe');
+
+	function requestSubscription() {
+		return sns
+			.subscribe(opts.topic.arn, subscribe.protocol, subscribe.endpoint)
+			.then(() => server.log(['hookido', 'subscribe'], 'Subscription request sent'));
+	}
+
 	if (subscribe) {
+
 		server.ext('onPostStart', (srv, next) => {
 			sns
 				.findSubscriptionArn(opts.topic.arn, subscribe.protocol, subscribe.endpoint)
 				.then(() => server.log(['hookido', 'subscribe'], 'Subscription already exists'))
-				.catch({code: 'NOT_FOUND'}, () => {
-					return sns
-						.subscribe(opts.topic.arn, subscribe.protocol, subscribe.endpoint)
-						.then(() => server.log(['hookido', 'subscribe'], 'Subscription request sent'));
-				})
+				.catch({code: 'NOT_FOUND'}, requestSubscription)
+				.catch({code: 'PENDING'}, requestSubscription)
 				.catch((err) => server.log(['hookido', 'subscribe', 'error'], err));
 
 			next();
 		});
+
 	}
 
 	const topicAttributes = Hoek.reach(opts, 'topic.attributes');

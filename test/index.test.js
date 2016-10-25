@@ -126,6 +126,56 @@ describe('Hookido Hapi Plugin', () => {
 
 	});
 
+	it('sends new subscribe request onPostStart if subscribe option is set and subscription is pending', (done) => {
+
+		const server = new Hapi.Server();
+		server.connection();
+
+		server.register({
+			register: plugin,
+			options: {
+				topic: {
+					arn: 'foo',
+					subscribe: {
+						endpoint: 'http://foo.com',
+						protocol: 'HTTP'
+					}
+				},
+				handlers: {
+					notification: () => {}
+				}
+			}
+		}, (err) => {
+			if (err) {
+				return done(err);
+			}
+
+			server.plugins.hookido.sns.findSubscriptionArn = (arn, protocol, endpoint) => {
+				const err = new Error();
+				err.code = 'PENDING';
+				return Promise.reject(err);
+			};
+
+			server.plugins.hookido.sns.subscribe = (arn, protocol, endpoint) => {
+
+				expect(arn).to.equal('foo');
+				expect(protocol).to.equal('HTTP');
+				expect(endpoint).to.equal('http://foo.com');
+				return Promise.resolve();
+
+			};
+
+			server.start((err) => {
+				if (err) {
+					return done(err);
+				}
+
+				server.stop(done);
+			});
+		});
+
+	});
+
 	it('sends setTopicAttributes request onPostStart if topicAttributes option is set', (done) => {
 
 		const server = new Hapi.Server();

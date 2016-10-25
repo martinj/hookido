@@ -17,26 +17,32 @@ describe('SNS', () => {
 
 	describe('#validatePayload', () => {
 
-		it('rejects on invalid JSON', () => {
+		it('rejects on invalid JSON', (done) => {
 
-			return sns
+			sns
 				.validatePayload('ada')
 				.catch((err) => {
 					expect(err.message).to.equal('Invalid SNS payload: Unexpected token a in JSON at position 0');
 					return sns.validatePayload(null);
 				})
 				.catch((err) => {
+
 					expect(err.message).to.equal('Invalid SNS payload: Not valid JSON');
+					done();
+
 				});
 
 		});
 
-		it('rejects on invalid payload', () => {
+		it('rejects on invalid payload', (done) => {
 
-			return sns
+			sns
 				.validatePayload('{"foo":"bar"}')
 				.catch((err) => {
+
 					expect(err.message).to.equal('Message missing required keys.');
+					done();
+
 				});
 
 		});
@@ -148,7 +154,7 @@ describe('SNS', () => {
 
 		afterEach(() => nock.cleanAll());
 
-		it('rejects with error containing code NOT_FOUND if not found', () => {
+		it('rejects with error containing code NOT_FOUND if not found', (done) => {
 
 			nock('https://sns.eu-west-1.amazonaws.com:443')
 				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
@@ -168,15 +174,47 @@ describe('SNS', () => {
 					 </ListSubscriptionsByTopicResponse>
 				`);
 
-			return sns
+			sns
 				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
 				.catch((err) => {
 
 					expect(err.code).to.equal('NOT_FOUND');
+					done();
 
 				});
 
 		});
+
+		it('rejects with error containing code PENDING if subscription exists but is pending confirmation', (done) => {
+
+			nock('https://sns.eu-west-1.amazonaws.com:443')
+				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
+				.reply(200, `
+					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
+						<ListSubscriptionsByTopicResult>
+							<Subscriptions>
+								<member>
+									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
+									<Protocol>http</Protocol>
+									<SubscriptionArn>PendingConfirmation</SubscriptionArn>
+									<Owner>123456789012</Owner>
+									<Endpoint>http://foo.com/bar</Endpoint>
+								</member>
+							</Subscriptions>
+						</ListSubscriptionsByTopicResult>
+					 </ListSubscriptionsByTopicResponse>
+				`);
+
+			sns
+				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
+				.catch((err) => {
+
+					expect(err.code).to.equal('PENDING');
+					done();
+
+				});
+		});
+
 
 		it('handles NextToken for paged results', () => {
 
