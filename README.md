@@ -109,3 +109,59 @@ Register subscription and set custom topic and subscription attributes on startu
 		});
 
 ```
+
+Configuring multiple SNS topics
+
+```javascript
+
+	const Hapi = require('hapi');
+	const server = new Hapi.Server();
+	server.connection();
+
+	server
+		.register({
+			register: require('hookido'),
+			options: [{
+				topic: {
+					arn: 'arn:to:mytopic'
+				},
+				aws: {
+					region: 'eu-west-1',
+					accessKeyId: 'a',
+					secretAccessKey: 'a'
+				},
+				route: {
+					path: '/path/used/in/subscription'
+				},
+				handlers: {
+					notification: (req, reply, payload) => {
+						console.log('Got notification from SNS', payload);
+						reply('OK');
+					}
+				}
+			}, {
+				topic: {
+					arn: 'arn:to:mytopic2'
+				},
+				aws: {
+					region: 'eu-central-1',
+					accessKeyId: 'b',
+					secretAccessKey: 'b'
+				},
+				route: {
+					path: '/second/path'
+				},
+				handlers: {
+					notification: (req, reply, payload) => {
+						console.log('Got notification from SNS', payload);
+						reply('OK');
+					}
+				}
+			}]
+		})
+		.then(() => server.start())
+		.then(() => {
+			console.log('Server running and accepting SNS notifications');
+		});
+
+```

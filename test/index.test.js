@@ -59,7 +59,7 @@ describe('Hookido Hapi Plugin', () => {
 				return done(err);
 			}
 
-			server.plugins.hookido.sns.findSubscriptionArn = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].findSubscriptionArn = (arn, protocol, endpoint) => {
 				return Promise.resolve('foo');
 			};
 
@@ -100,13 +100,13 @@ describe('Hookido Hapi Plugin', () => {
 				return done(err);
 			}
 
-			server.plugins.hookido.sns.findSubscriptionArn = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].findSubscriptionArn = (arn, protocol, endpoint) => {
 				const err = new Error();
 				err.code = 'NOT_FOUND';
 				return Promise.reject(err);
 			};
 
-			server.plugins.hookido.sns.subscribe = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].subscribe = (arn, protocol, endpoint) => {
 
 				expect(arn).to.equal('foo');
 				expect(protocol).to.equal('HTTP');
@@ -150,13 +150,13 @@ describe('Hookido Hapi Plugin', () => {
 				return done(err);
 			}
 
-			server.plugins.hookido.sns.findSubscriptionArn = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].findSubscriptionArn = (arn, protocol, endpoint) => {
 				const err = new Error();
 				err.code = 'PENDING';
 				return Promise.reject(err);
 			};
 
-			server.plugins.hookido.sns.subscribe = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].subscribe = (arn, protocol, endpoint) => {
 
 				expect(arn).to.equal('foo');
 				expect(protocol).to.equal('HTTP');
@@ -199,7 +199,7 @@ describe('Hookido Hapi Plugin', () => {
 				return done(err);
 			}
 
-			server.plugins.hookido.sns.setTopicAttributes = (topic, attributes) => {
+			server.plugins.hookido.snsInstances[0].setTopicAttributes = (topic, attributes) => {
 
 				expect(topic).to.equal('foo');
 				expect(attributes).to.deep.equal({foo: 'bar'});
@@ -381,6 +381,42 @@ describe('Hookido Hapi Plugin', () => {
 				.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
 				.catch(done);
 
+		});
+
+	});
+
+	it('supports multiple configurations', (done) => {
+
+		const server = new Hapi.Server();
+		server.connection();
+
+		server.register({
+			register: plugin,
+			options: [{
+				route: {
+					path: '/foobar'
+				},
+				handlers: {
+					notification: () => {}
+				}
+			}, {
+				route: {
+					path: '/foobar2'
+				},
+				handlers: {
+					notification: () => {}
+				}
+			}]
+		}, (err) => {
+			if (err) {
+				return done(err);
+			}
+
+			const table = server.connections[0].table();
+			expect(table[0].path).to.equal('/foobar');
+			expect(table[1].path).to.equal('/foobar2');
+			expect(server.plugins.hookido.snsInstances).to.have.a.lengthOf(2);
+			done();
 		});
 
 	});
