@@ -31,7 +31,7 @@ function dispatchToHandler(handlers, req, reply, payload) {
 function confirmSubscription(sns, topicOpts, req, reply, payload) {
 	return request
 		.get(payload.SubscribeURL)
-		.then((res) => {
+		.then(() => {
 			req.log(['hookido', 'info'], `SNS subscription confirmed for ${payload.TopicArn}`);
 			reply().code(200);
 

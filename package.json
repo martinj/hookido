@@ -41,22 +41,22 @@
     }
   },
   "dependencies": {
-    "aws-sdk": "^2.6.10",
-    "bluebird": "^3.4.6",
+    "aws-sdk": "^2.16.0",
+    "bluebird": "^3.4.7",
     "hoek": "^4.1.0",
-    "joi": "^9.2.0",
+    "joi": "^10.2.2",
     "request-prom": "^3.1.0",
     "sns-validator": "^0.2.1"
   },
   "devDependencies": {
-    "@aptoma/eslint-config": "^4.0.0",
+    "@aptoma/eslint-config": "^6.0.0",
     "chai": "3.5.0",
-    "eslint": "^3.8.1",
-    "hapi": "^15.1.1",
+    "eslint": "^3.15.0",
+    "hapi": "^16.1.0",
     "istanbul": "^0.4.2",
-    "mocha": "^3.1.2",
+    "mocha": "^3.2.0",
     "mocha-only-detector": "^0.1.0",
-    "nock": "^8.1.0",
-    "release-it": "^2.3.1"
+    "nock": "^9.0.6",
+    "release-it": "^2.5.4"
   }
 }

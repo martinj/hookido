@@ -59,7 +59,7 @@ describe('Hookido Hapi Plugin', () => {
 				return done(err);
 			}
 
-			server.plugins.hookido.snsInstances[0].findSubscriptionArn = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
 				return Promise.resolve('foo');
 			};
 
@@ -100,7 +100,7 @@ describe('Hookido Hapi Plugin', () => {
 				return done(err);
 			}
 
-			server.plugins.hookido.snsInstances[0].findSubscriptionArn = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
 				const err = new Error();
 				err.code = 'NOT_FOUND';
 				return Promise.reject(err);
@@ -150,7 +150,7 @@ describe('Hookido Hapi Plugin', () => {
 				return done(err);
 			}
 
-			server.plugins.hookido.snsInstances[0].findSubscriptionArn = (arn, protocol, endpoint) => {
+			server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
 				const err = new Error();
 				err.code = 'PENDING';
 				return Promise.reject(err);
@@ -232,7 +232,7 @@ describe('Hookido Hapi Plugin', () => {
 				options: {
 					skipPayloadValidation: true,
 					handlers: {
-						notification: (req, reply, payload) => {
+						notification: (req, reply) => {
 							reply({called: true});
 						}
 					}
@@ -263,7 +263,7 @@ describe('Hookido Hapi Plugin', () => {
 					skipPayloadValidation: true,
 					handlers: {
 						notification() {},
-						subscriptionconfirmation: (req, reply, payload) => {
+						subscriptionconfirmation: (req, reply) => {
 							reply({called: true});
 						}
 					}
