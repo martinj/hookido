@@ -293,7 +293,8 @@ describe('Hookido Hapi Plugin', () => {
 
 			const payload = {
 				Type: 'SubscriptionConfirmation',
-				SubscribeURL: 'http://localtest.com/foo'
+				SubscribeURL: 'http://localtest.com/foo',
+				TopicArn: 'myTopicArn'
 			};
 
 
@@ -302,6 +303,7 @@ describe('Hookido Hapi Plugin', () => {
 					register: plugin,
 					options: {
 						skipPayloadValidation: true,
+						topic: {arn: 'myTopicArn'},
 						handlers: {
 							notification() {}
 						}
@@ -310,9 +312,40 @@ describe('Hookido Hapi Plugin', () => {
 				.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
 				.then((res) => {
 
-
 					expect(res.statusCode).to.equal(200);
 					expect(confirmRequest.isDone()).to.be.true;
+
+				});
+
+		});
+
+		it('fails if configured topic arn doesn\'t match TopicArn in SubscriptionConfirmation payload', () => {
+
+			const server = new Hapi.Server();
+			server.connection();
+
+			const payload = {
+				Type: 'SubscriptionConfirmation',
+				SubscribeURL: 'http://localtest.com/foo',
+				TopicArn: 'evilTopic'
+			};
+
+
+			return server
+				.register({
+					register: plugin,
+					options: {
+						skipPayloadValidation: true,
+						topic: {arn: 'myTopicArn'},
+						handlers: {
+							notification() {}
+						}
+					}
+				})
+				.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
+				.then((res) => {
+
+					expect(res.statusCode).to.equal(500);
 
 				});
 
@@ -349,7 +382,8 @@ describe('Hookido Hapi Plugin', () => {
 
 			const payload = {
 				Type: 'SubscriptionConfirmation',
-				SubscribeURL: 'http://localtest.com/foo'
+				SubscribeURL: 'http://localtest.com/foo',
+				TopicArn: 'mytopic'
 			};
 
 

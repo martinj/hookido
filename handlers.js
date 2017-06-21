@@ -1,5 +1,6 @@
 'use strict';
 
+const Promise = require('bluebird');
 const Hoek = require('hoek');
 const request = require('request-prom');
 
@@ -29,6 +30,17 @@ function dispatchToHandler(handlers, req, reply, payload) {
 }
 
 function confirmSubscription(sns, topicOpts, req, reply, payload) {
+	const topicArn = Hoek.reach(topicOpts, 'arn');
+	if (!topicArn) {
+		return Promise.reject(new Error('Can\'t confirm subscription when no topic.arn is configured'));
+	}
+
+	if (payload.TopicArn !== topicArn) {
+		const err = `Confirm subscription request for ${payload.TopicArn} doesn't match configured topic arn`;
+		req.log(['hookido', 'error'], err);
+		return Promise.reject(new Error(err));
+	}
+
 	return request
 		.get(payload.SubscribeURL)
 		.then(() => {
