@@ -35,32 +35,29 @@ If you already have subscription setup on SNS for your server
 
 	const Hapi = require('hapi');
 	const server = new Hapi.Server();
-	server.connection();
 
-	server
-		.register({
-			register: require('hookido'),
-			options: {
-				aws: {
-					region: 'eu-west-1',
-					accessKeyId: 'a',
-					secretAccessKey: 'a'
-				},
-				route: {
-					path: '/path/used/in/subscription'
-				},
-				handlers: {
-					notification: (req, reply, payload) => {
-						console.log('Got notification from SNS', payload);
-						reply('OK');
-					}
+	await server.register({
+		plugin: require('hookido'),
+		options: {
+			aws: {
+				region: 'eu-west-1',
+				accessKeyId: 'a',
+				secretAccessKey: 'a'
+			},
+			route: {
+				path: '/path/used/in/subscription'
+			},
+			handlers: {
+				notification: (req, h, payload) => {
+					console.log('Got notification from SNS', payload);
+					return 'Ok'
 				}
 			}
-		})
-		.then(() => server.start())
-		.then(() => {
-			console.log('Server running and accepting SNS notifications');
-		});
+		}
+	});
+
+	await server.start();
+	console.log('Server running and accepting SNS notifications');
 
 ```
 
@@ -70,43 +67,40 @@ Register subscription and set custom topic and subscription attributes on startu
 
 	const Hapi = require('hapi');
 	const server = new Hapi.Server();
-	server.connection();
 
-	server
-		.register({
-			register: require('hookido'),
-			options: {
-				topic: {
-					arn: 'arn:to:mytopic',
+	await server.register({
+		plugin: require('hookido'),
+		options: {
+			topic: {
+				arn: 'arn:to:mytopic',
+				attributes: {
+					HTTPSuccessFeedbackRoleArn: 'arn:aws:iam::xxxx:role/myRole',
+					HTTPSuccessFeedbackSampleRate: '100'
+				},
+				subscribe: {
+					protocol: 'HTTP',
+					endpoint: 'http://myserver.com/hookido',
 					attributes: {
-						HTTPSuccessFeedbackRoleArn: 'arn:aws:iam::xxxx:role/myRole',
-						HTTPSuccessFeedbackSampleRate: '100'
-					},
-					subscribe: {
-						protocol: 'HTTP',
-						endpoint: 'http://myserver.com/hookido',
-						attributes: {
-							DeliveryPolicy: '{"healthyRetryPolicy":{"numRetries":5}}'
-						}
-					}
-				},
-				aws: {
-					region: 'eu-west-1',
-					accessKeyId: 'a',
-					secretAccessKey: 'a'
-				},
-				handlers: {
-					notification: (req, reply, payload) => {
-						console.log('Got notification from SNS', payload);
-						reply('OK');
+						DeliveryPolicy: '{"healthyRetryPolicy":{"numRetries":5}}'
 					}
 				}
+			},
+			aws: {
+				region: 'eu-west-1',
+				accessKeyId: 'a',
+				secretAccessKey: 'a'
+			},
+			handlers: {
+				notification: (req, h, payload) => {
+					console.log('Got notification from SNS', payload);
+					return 'Ok'
+				}
 			}
-		})
-		.then(() => server.start())
-		.then(() => {
-			console.log('Server running and accepting SNS notifications');
-		});
+		}
+	});
+
+	await server.start();
+	console.log('Server running and accepting SNS notifications');
 
 ```
 
@@ -116,52 +110,49 @@ Configuring multiple SNS topics
 
 	const Hapi = require('hapi');
 	const server = new Hapi.Server();
-	server.connection();
 
-	server
-		.register({
-			register: require('hookido'),
-			options: [{
-				topic: {
-					arn: 'arn:to:mytopic'
-				},
-				aws: {
-					region: 'eu-west-1',
-					accessKeyId: 'a',
-					secretAccessKey: 'a'
-				},
-				route: {
-					path: '/path/used/in/subscription'
-				},
-				handlers: {
-					notification: (req, reply, payload) => {
-						console.log('Got notification from SNS', payload);
-						reply('OK');
-					}
+	await server.register({
+		plugin: require('hookido'),
+		options: [{
+			topic: {
+				arn: 'arn:to:mytopic'
+			},
+			aws: {
+				region: 'eu-west-1',
+				accessKeyId: 'a',
+				secretAccessKey: 'a'
+			},
+			route: {
+				path: '/path/used/in/subscription'
+			},
+			handlers: {
+				notification: (req, h, payload) => {
+					console.log('Got notification from SNS', payload);
+					return 'Ok';
 				}
-			}, {
-				topic: {
-					arn: 'arn:to:mytopic2'
-				},
-				aws: {
-					region: 'eu-central-1',
-					accessKeyId: 'b',
-					secretAccessKey: 'b'
-				},
-				route: {
-					path: '/second/path'
-				},
-				handlers: {
-					notification: (req, reply, payload) => {
-						console.log('Got notification from SNS', payload);
-						reply('OK');
-					}
+			}
+		}, {
+			topic: {
+				arn: 'arn:to:mytopic2'
+			},
+			aws: {
+				region: 'eu-central-1',
+				accessKeyId: 'b',
+				secretAccessKey: 'b'
+			},
+			route: {
+				path: '/second/path'
+			},
+			handlers: {
+				notification: (req, h, payload) => {
+					console.log('Got notification from SNS', payload);
+					return 'Ok';
 				}
-			}]
-		})
-		.then(() => server.start())
-		.then(() => {
-			console.log('Server running and accepting SNS notifications');
-		});
+			}
+		}]
+	});
+
+	await server.start;
+	console.log('Server running and accepting SNS notifications');
 
 ```

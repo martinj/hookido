@@ -8,13 +8,12 @@ const nock = require('nock');
 
 describe('Hookido Hapi Plugin', () => {
 
-	it('merges route options with route', (done) => {
+	it('merges route options with route', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
-		server.register({
-			register: plugin,
+		await server.register({
+			plugin,
 			options: {
 				route: {
 					path: '/foobar'
@@ -23,25 +22,19 @@ describe('Hookido Hapi Plugin', () => {
 					notification: () => {}
 				}
 			}
-		}, (err) => {
-			if (err) {
-				return done(err);
-			}
-
-			const table = server.connections[0].table();
-			expect(table[0].path).to.equal('/foobar');
-			done();
 		});
+
+		const table = server.table();
+		expect(table[0].path).to.equal('/foobar');
 
 	});
 
-	it('skips subscribe request if subscription exist', (done) => {
+	it('skips subscribe request if subscription exist', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
-		server.register({
-			register: plugin,
+		await server.register({
+			plugin,
 			options: {
 				topic: {
 					arn: 'foo',
@@ -54,35 +47,24 @@ describe('Hookido Hapi Plugin', () => {
 					notification: () => {}
 				}
 			}
-		}, (err) => {
-			if (err) {
-				return done(err);
-			}
-
-			server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
-				return Promise.resolve('foo');
-			};
-
-			server.start((err) => {
-				if (err) {
-					return done(err);
-				}
-
-				server.stop(done);
-			});
 		});
 
+		server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
+			return Promise.resolve('foo');
+		};
+
+		await server.start();
+		await server.stop();
 
 	});
 
 
-	it('sends subscribe request onPostStart if subscribe option is set and subscription does not exist', (done) => {
+	it('sends subscribe request onPostStart if subscribe option is set and subscription does not exist', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
-		server.register({
-			register: plugin,
+		await server.register({
+			plugin,
 			options: {
 				topic: {
 					arn: 'foo',
@@ -95,44 +77,34 @@ describe('Hookido Hapi Plugin', () => {
 					notification: () => {}
 				}
 			}
-		}, (err) => {
-			if (err) {
-				return done(err);
-			}
-
-			server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
-				const err = new Error();
-				err.code = 'NOT_FOUND';
-				return Promise.reject(err);
-			};
-
-			server.plugins.hookido.snsInstances[0].subscribe = (arn, protocol, endpoint) => {
-
-				expect(arn).to.equal('foo');
-				expect(protocol).to.equal('HTTP');
-				expect(endpoint).to.equal('http://foo.com');
-				return Promise.resolve();
-
-			};
-
-			server.start((err) => {
-				if (err) {
-					return done(err);
-				}
-
-				server.stop(done);
-			});
 		});
+
+		server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
+			const err = new Error();
+			err.code = 'NOT_FOUND';
+			return Promise.reject(err);
+		};
+
+		server.plugins.hookido.snsInstances[0].subscribe = (arn, protocol, endpoint) => {
+
+			expect(arn).to.equal('foo');
+			expect(protocol).to.equal('HTTP');
+			expect(endpoint).to.equal('http://foo.com');
+			return Promise.resolve();
+
+		};
+
+		await server.start();
+		await server.stop();
 
 	});
 
-	it('sends new subscribe request onPostStart if subscribe option is set and subscription is pending', (done) => {
+	it('sends new subscribe request onPostStart if subscribe option is set and subscription is pending', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
-		server.register({
-			register: plugin,
+		await server.register({
+			plugin,
 			options: {
 				topic: {
 					arn: 'foo',
@@ -145,44 +117,34 @@ describe('Hookido Hapi Plugin', () => {
 					notification: () => {}
 				}
 			}
-		}, (err) => {
-			if (err) {
-				return done(err);
-			}
-
-			server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
-				const err = new Error();
-				err.code = 'PENDING';
-				return Promise.reject(err);
-			};
-
-			server.plugins.hookido.snsInstances[0].subscribe = (arn, protocol, endpoint) => {
-
-				expect(arn).to.equal('foo');
-				expect(protocol).to.equal('HTTP');
-				expect(endpoint).to.equal('http://foo.com');
-				return Promise.resolve();
-
-			};
-
-			server.start((err) => {
-				if (err) {
-					return done(err);
-				}
-
-				server.stop(done);
-			});
 		});
+
+		server.plugins.hookido.snsInstances[0].findSubscriptionArn = () => {
+			const err = new Error();
+			err.code = 'PENDING';
+			return Promise.reject(err);
+		};
+
+		server.plugins.hookido.snsInstances[0].subscribe = (arn, protocol, endpoint) => {
+
+			expect(arn).to.equal('foo');
+			expect(protocol).to.equal('HTTP');
+			expect(endpoint).to.equal('http://foo.com');
+			return Promise.resolve();
+
+		};
+
+		await server.start();
+		await server.stop();
 
 	});
 
-	it('sends setTopicAttributes request onPostStart if topicAttributes option is set', (done) => {
+	it('sends setTopicAttributes request onPostStart if topicAttributes option is set', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
-		server.register({
-			register: plugin,
+		await server.register({
+			plugin,
 			options: {
 				topic: {
 					arn: 'foo',
@@ -194,102 +156,82 @@ describe('Hookido Hapi Plugin', () => {
 					notification: () => {}
 				}
 			}
-		}, (err) => {
-			if (err) {
-				return done(err);
-			}
-
-			server.plugins.hookido.snsInstances[0].setTopicAttributes = (topic, attributes) => {
-
-				expect(topic).to.equal('foo');
-				expect(attributes).to.deep.equal({foo: 'bar'});
-				return Promise.resolve();
-
-			};
-
-			server.start((err) => {
-				if (err) {
-					return done(err);
-				}
-
-				server.stop(done);
-			});
 		});
+
+		server.plugins.hookido.snsInstances[0].setTopicAttributes = (topic, attributes) => {
+
+			expect(topic).to.equal('foo');
+			expect(attributes).to.deep.equal({foo: 'bar'});
+			return Promise.resolve();
+
+		};
+
+		await server.start();
+		await server.stop();
 
 	});
 
-	it('dispatches SNS message of type Notification to configured handler', () => {
+	it('dispatches SNS message of type Notification to configured handler', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
 		const payload = {Type: 'Notification'};
 
-
-		return server
-			.register({
-				register: plugin,
-				options: {
-					skipPayloadValidation: true,
-					handlers: {
-						notification: (req, reply) => {
-							reply({called: true});
-						}
+		await server.register({
+			plugin,
+			options: {
+				skipPayloadValidation: true,
+				handlers: {
+					notification() {
+						return {called: true};
 					}
 				}
-			})
-			.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
-			.then((res) => {
+			}
+		});
 
-				expect(res.statusCode).to.equal(200);
-				expect(res.result).to.deep.equal({called: true});
-
-			});
+		const res = await server.inject({method: 'POST', url: '/hookido', payload});
+		expect(res.statusCode).to.equal(200);
+		expect(res.result).to.deep.equal({called: true});
 
 	});
 
-	it('dispatches SNS message of type SubscriptionConfirmation to configured handler', () => {
+	it('dispatches SNS message of type SubscriptionConfirmation to configured handler', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
 		const payload = {Type: 'SubscriptionConfirmation'};
 
-
-		return server
-			.register({
-				register: plugin,
-				options: {
-					skipPayloadValidation: true,
-					handlers: {
-						notification() {},
-						subscriptionconfirmation: (req, reply) => {
-							reply({called: true});
-						}
+		await server.register({
+			plugin,
+			options: {
+				skipPayloadValidation: true,
+				handlers: {
+					notification() {},
+					subscriptionconfirmation() {
+						return {called: true};
 					}
 				}
-			})
-			.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
-			.then((res) => {
+			}
+		});
 
-				expect(res.statusCode).to.equal(200);
-				expect(res.result).to.deep.equal({called: true});
+		const res = await server.inject({method: 'POST', url: '/hookido', payload});
 
-			});
+		expect(res.statusCode).to.equal(200);
+		expect(res.result).to.deep.equal({called: true});
+
 	});
 
 	describe('ConfirmSubscription', () => {
 
 		afterEach(() => nock.cleanAll());
 
-		it('handles SubscriptionConfirmation if no handler is registered for that type', () => {
+		it('handles SubscriptionConfirmation if no handler is registered for that type', async () => {
 
 			const confirmRequest = nock('http://localtest.com')
 				.get('/foo')
 				.reply(200);
 
 			const server = new Hapi.Server();
-			server.connection();
 
 			const payload = {
 				Type: 'SubscriptionConfirmation',
@@ -297,32 +239,27 @@ describe('Hookido Hapi Plugin', () => {
 				TopicArn: 'myTopicArn'
 			};
 
-
-			return server
-				.register({
-					register: plugin,
-					options: {
-						skipPayloadValidation: true,
-						topic: {arn: 'myTopicArn'},
-						handlers: {
-							notification() {}
-						}
+			await server.register({
+				plugin,
+				options: {
+					skipPayloadValidation: true,
+					topic: {arn: 'myTopicArn'},
+					handlers: {
+						notification() {}
 					}
-				})
-				.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
-				.then((res) => {
+				}
+			});
 
-					expect(res.statusCode).to.equal(200);
-					expect(confirmRequest.isDone()).to.be.true;
+			const res = await server.inject({method: 'POST', url: '/hookido', payload});
 
-				});
+			expect(res.statusCode).to.equal(200);
+			expect(confirmRequest.isDone()).to.be.true;
 
 		});
 
-		it('fails if configured topic arn doesn\'t match TopicArn in SubscriptionConfirmation payload', () => {
+		it('fails if configured topic arn doesn\'t match TopicArn in SubscriptionConfirmation payload', async () => {
 
 			const server = new Hapi.Server();
-			server.connection();
 
 			const payload = {
 				Type: 'SubscriptionConfirmation',
@@ -330,34 +267,30 @@ describe('Hookido Hapi Plugin', () => {
 				TopicArn: 'evilTopic'
 			};
 
-
-			return server
-				.register({
-					register: plugin,
-					options: {
-						skipPayloadValidation: true,
-						topic: {arn: 'myTopicArn'},
-						handlers: {
-							notification() {}
-						}
+			await server.register({
+				plugin,
+				options: {
+					skipPayloadValidation: true,
+					topic: {arn: 'myTopicArn'},
+					handlers: {
+						notification() {}
 					}
-				})
-				.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
-				.then((res) => {
+				}
+			});
 
-					expect(res.statusCode).to.equal(500);
+			const res = await server.inject({method: 'POST', url: '/hookido', payload});
 
-				});
+			expect(res.statusCode).to.equal(500);
 
 		});
 
-		it('sets subscription attributes if supplied in options', (done) => {
+		it('sets subscription attributes if supplied in options', async () => {
 
-			nock('http://localtest.com')
+			const mock1 = nock('http://localtest.com')
 				.get('/foo')
 				.reply(200);
 
-			nock('https://sns.eu-west-1.amazonaws.com:443')
+			const mock2 = nock('https://sns.eu-west-1.amazonaws.com:443')
 				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=mytopic&Version=2010-03-31')
 				.reply(200, `
 					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
@@ -375,10 +308,9 @@ describe('Hookido Hapi Plugin', () => {
 					 </ListSubscriptionsByTopicResponse>
 				`)
 				.post('/', 'Action=SetSubscriptionAttributes&AttributeName=foo&AttributeValue=bar&SubscriptionArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200, done.bind(null, null));
+				.reply(200);
 
 			const server = new Hapi.Server();
-			server.connection();
 
 			const payload = {
 				Type: 'SubscriptionConfirmation',
@@ -386,46 +318,46 @@ describe('Hookido Hapi Plugin', () => {
 				TopicArn: 'mytopic'
 			};
 
-
-			server
-				.register({
-					register: plugin,
-					options: {
-						skipPayloadValidation: true,
-						aws: {
-							region: 'eu-west-1',
-							accessKeyId: 'a',
-							secretAccessKey: 'a'
-						},
-						topic: {
-							arn: 'mytopic',
-							subscribe: {
-								protocol: 'HTTP',
-								endpoint: 'http://foo.com/bar',
-								attributes: {
-									foo: 'bar'
-								}
+			server.register({
+				plugin,
+				options: {
+					skipPayloadValidation: true,
+					aws: {
+						region: 'eu-west-1',
+						accessKeyId: 'a',
+						secretAccessKey: 'a'
+					},
+					topic: {
+						arn: 'mytopic',
+						subscribe: {
+							protocol: 'HTTP',
+							endpoint: 'http://foo.com/bar',
+							attributes: {
+								foo: 'bar'
 							}
-						},
-						handlers: {
-							notification() {}
 						}
+					},
+					handlers: {
+						notification() {}
 					}
-				})
-				.then(() => server.inject({method: 'POST', url: '/hookido', payload}))
-				.catch(done);
+				}
+			});
+
+			await server.inject({method: 'POST', url: '/hookido', payload});
+
+			expect(mock1.isDone()).to.be.true;
+			expect(mock2.isDone()).to.be.true;
 
 		});
 
 	});
 
-	it('supports multiple configurations', (done) => {
+	it('supports multiple configurations', async () => {
 
 		const server = new Hapi.Server();
-		server.connection();
 
-		server.register({
-			register: plugin,
+		await server.register({
+			plugin,
 			options: [{
 				route: {
 					path: '/foobar'
@@ -441,17 +373,13 @@ describe('Hookido Hapi Plugin', () => {
 					notification: () => {}
 				}
 			}]
-		}, (err) => {
-			if (err) {
-				return done(err);
-			}
-
-			const table = server.connections[0].table();
-			expect(table[0].path).to.equal('/foobar');
-			expect(table[1].path).to.equal('/foobar2');
-			expect(server.plugins.hookido.snsInstances).to.have.a.lengthOf(2);
-			done();
 		});
+
+		const table = server.table();
+
+		expect(table[0].path).to.equal('/foobar');
+		expect(table[1].path).to.equal('/foobar2');
+		expect(server.plugins.hookido.snsInstances).to.have.a.lengthOf(2);
 
 	});
 });
