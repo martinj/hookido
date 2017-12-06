@@ -24,14 +24,14 @@ const validOptions = Joi.array().items(Joi.object({
 	}).required().description('Request handler functions for different kind of sns messages')
 })).single();
 
-exports.register = function (server, opts, next) {
+function register(server, opts) {
 	const results = Joi.validate(opts, validOptions);
 	Hoek.assert(!results.error, results.error);
 
 	const snsInstances = [];
 	results.value.forEach((config) => init(config));
 	server.expose('snsInstances', snsInstances);
-	return next();
+	return;
 
 	function init(config) {
 		const sns = new SNS(config.aws);
@@ -46,28 +46,24 @@ exports.register = function (server, opts, next) {
 
 		if (subscribe) {
 
-			server.ext('onPostStart', (srv, next) => {
-				sns
+			server.ext('onPostStart', () => {
+				return sns
 					.findSubscriptionArn(config.topic.arn, subscribe.protocol, subscribe.endpoint)
 					.then(() => server.log(['hookido', 'subscribe'], `Subscription already exists for ${config.topic.arn}`))
 					.catch({code: 'NOT_FOUND'}, requestSubscription)
 					.catch({code: 'PENDING'}, requestSubscription)
 					.catch((err) => server.log(['hookido', 'subscribe', 'error'], err));
-
-				next();
 			});
 
 		}
 
 		const topicAttributes = Hoek.reach(config, 'topic.attributes');
 		if (topicAttributes) {
-			server.ext('onPostStart', (srv, next) => {
-				sns
+			server.ext('onPostStart', () => {
+				return sns
 					.setTopicAttributes(config.topic.arn, topicAttributes)
 					.then(() => server.log(['hookido', 'setTopicAttributes'], `topicAttributes was updated for ${config.topic.arn}`))
 					.catch((err) => server.log(['hookido', 'setTopicAttributes', 'error'], err));
-
-				next();
 			});
 		}
 
@@ -81,8 +77,9 @@ exports.register = function (server, opts, next) {
 			}
 		}, config.route || {}));
 	}
-};
+}
 
-exports.register.attributes = {
-	name: 'hookido'
+module.exports = {
+	name: 'hookido',
+	register
 };

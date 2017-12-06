@@ -9,15 +9,14 @@ exports.hook = (sns, {handlers, skipPayloadValidation, topic}) => {
 		subscriptionconfirmation: confirmSubscription.bind(null, sns, topic)
 	}, handlers);
 
-	return (req, reply) => {
-		sns
+	return (req, h) => {
+		return sns
 			.validatePayload(req.payload, skipPayloadValidation)
-			.then(dispatchToHandler.bind(null, handlers, req, reply))
-			.catch(reply);
+			.then(dispatchToHandler.bind(null, handlers, req, h));
 	};
 };
 
-function dispatchToHandler(handlers, req, reply, payload) {
+function dispatchToHandler(handlers, req, h, payload) {
 	const handler = handlers[payload.Type.toLowerCase()];
 
 	if (!handler) {
@@ -26,10 +25,10 @@ function dispatchToHandler(handlers, req, reply, payload) {
 		throw new Error(msg);
 	}
 
-	return handler(req, reply, payload);
+	return handler(req, h, payload);
 }
 
-function confirmSubscription(sns, topicOpts, req, reply, payload) {
+async function confirmSubscription(sns, topicOpts, req, h, payload) {
 	const topicArn = Hoek.reach(topicOpts, 'arn');
 	if (!topicArn) {
 		return Promise.reject(new Error('Can\'t confirm subscription when no topic.arn is configured'));
@@ -41,24 +40,24 @@ function confirmSubscription(sns, topicOpts, req, reply, payload) {
 		return Promise.reject(new Error(err));
 	}
 
-	return request
-		.get(payload.SubscribeURL)
-		.then(() => {
-			req.log(['hookido', 'info'], `SNS subscription confirmed for ${payload.TopicArn}`);
-			reply().code(200);
+	try {
+		await request.get(payload.SubscribeURL);
+		req.log(['hookido', 'info'], `SNS subscription confirmed for ${payload.TopicArn}`);
 
-			const susbscriptionAttr = Hoek.reach(topicOpts, 'subscribe.attributes');
-			if (susbscriptionAttr) {
-				return sns
-					.findSubscriptionArn(topicOpts.arn, topicOpts.subscribe.protocol, topicOpts.subscribe.endpoint)
-					.then((arn) => sns.setSubscriptionAttributes(arn, susbscriptionAttr))
-					.catch((err) => {
-						req.log(['hookido', 'error'], `Unable to update subscription attributes for ${payload.TopicArn}, err: ${err.message}`);
-					});
-			}
-		})
-		.catch((err) => {
-			req.log(['hookido', 'error'], `Unable to confirm SNS subscription for ${payload.TopicArn}, err: ${err.message}`);
-			throw err;
-		});
+	} catch (err) {
+		req.log(['hookido', 'error'], `Unable to confirm SNS subscription for ${payload.TopicArn}, err: ${err.message}`);
+		throw err;
+	}
+
+	const susbscriptionAttr = Hoek.reach(topicOpts, 'subscribe.attributes');
+	if (susbscriptionAttr) {
+		try {
+			const arn = await sns.findSubscriptionArn(topicOpts.arn, topicOpts.subscribe.protocol, topicOpts.subscribe.endpoint);
+			await sns.setSubscriptionAttributes(arn, susbscriptionAttr);
+		} catch (err) {
+			req.log(['hookido', 'error'], `Unable to update subscription attributes for ${payload.TopicArn}, err: ${err.message}`);
+		}
+	}
+
+	return h.response().code(200);
 }
