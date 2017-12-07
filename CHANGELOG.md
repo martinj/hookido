@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 4.0.0
+
+* [[1593263](../../commit/1593263)] Update for Hapi 17
+
 ## 3.0.0
 
 * [[0cd5978](../../commit/0cd5978)] Update dependencies: hoek@4.1.1 aws-sdk@2.74.0 bluebird@3.5.0 joi@10.6.0 sns-validator@0.3.0
