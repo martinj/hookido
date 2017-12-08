@@ -23,8 +23,8 @@ This module is installed via npm:
     	- `protocol` - `HTTP` or `HTTPS` **required**
     	- `attributes` Object, key:value, Set subscription attributes, only used if the plugin handles the subscription confirmation and subscription does not exist'
 - `handlers`
-    - `subscriptionconfirmation` - `Function(req, reply, payload)` If omitted the plugin will handle the subscription confirmation messages
-	- `notification` - `Function(req, reply, payload)` **required**
+    - `subscriptionconfirmation` - `Function(req, h, payload)` If omitted the plugin will handle the subscription confirmation messages
+	- `notification` - `Function(req, h, payload)` **required**
 
 
 ## Examples
