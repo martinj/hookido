@@ -1,7 +1,7 @@
 'use strict';
 
-const Joi = require('joi');
-const Hoek = require('hoek');
+const Joi = require('@hapi/joi');
+const Hoek = require('@hapi/hoek');
 const SNS = require('./lib/sns');
 const handlers = require('./handlers');
 

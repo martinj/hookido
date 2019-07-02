@@ -1,7 +1,7 @@
 'use strict';
 
 const Promise = require('bluebird');
-const Hoek = require('hoek');
+const Hoek = require('@hapi/hoek');
 const request = require('request-prom');
 
 exports.hook = (sns, {handlers, skipPayloadValidation, topic}) => {
