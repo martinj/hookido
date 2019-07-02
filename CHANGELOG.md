@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 5.0.0
+
+* [[e90abc9](../../commit/e90abc9)] Drop node 8 support and update dependencies
+* [[153a764](../../commit/153a764)] Update docs
+
 ## 4.0.0
 
 * [[1593263](../../commit/1593263)] Update for Hapi 17

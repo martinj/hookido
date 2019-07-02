@@ -1,6 +1,6 @@
 {
   "name": "hookido",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Hapi plugin for handling AWS SNS http(s) subscriptions aka webhooks",
   "main": "index.js",
   "scripts": {
@@ -8,9 +8,9 @@
     "watch": "mocha --watch 'test/**/*.js' 'lib/**/*.js' '*.js' --timeout 500",
     "test": "npm run lint && nyc --reporter=text-summary --reporter=lcov mocha --exit 'test/**/*.test.js'",
     "changelog": "git log `git describe --tags --abbrev=0`..HEAD --pretty=format:\"  * %s\"",
-    "release": "npm run ci && release-it -n -i patch",
-    "release:minor": "npm run ci && release-it -n -i minor",
-    "release:major": "npm run ci && release-it -n -i major"
+    "release": "npm run test && release-it -n -i patch",
+    "release:minor": "npm run test && release-it -n -i minor",
+    "release:major": "npm run test && release-it -n -i major"
   },
   "engines": {
     "node": ">=10.x.x"
