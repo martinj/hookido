@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 6.0.0
+
+* [[c6169c1](../../commit/c6169c1)] Allow plugin to be loaded multiple times
+* [[fd0b10f](../../commit/fd0b10f)] Update dependencies
+
 ## 5.0.0
 
 * [[e90abc9](../../commit/e90abc9)] Drop node 8 support and update dependencies

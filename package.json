@@ -1,6 +1,6 @@
 {
   "name": "hookido",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "Hapi plugin for handling AWS SNS http(s) subscriptions aka webhooks",
   "main": "index.js",
   "scripts": {
