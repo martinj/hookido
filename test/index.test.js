@@ -382,4 +382,41 @@ describe('Hookido Hapi Plugin', () => {
 		expect(server.plugins.hookido.snsInstances).to.have.a.lengthOf(2);
 
 	});
+
+	it('supports to load multiple times', async () => {
+
+		const server = new Hapi.Server();
+
+		await server.register({
+			plugin,
+			options: {
+				route: {
+					path: '/foobar'
+				},
+				handlers: {
+					notification: () => {}
+				}
+			}
+		});
+
+		await server.register({
+			plugin,
+			options: {
+				route: {
+					path: '/foobar2'
+				},
+				handlers: {
+					notification: () => {}
+				}
+			}
+		});
+
+		const table = server.table();
+
+		expect(table[0].path).to.equal('/foobar');
+		expect(table[1].path).to.equal('/foobar2');
+		expect(server.plugins.hookido.snsInstances).to.have.a.lengthOf(2);
+
+	});
+
 });

@@ -27,7 +27,7 @@ const validOptions = Joi.array().items(Joi.object({
 function register(server, opts) {
 	const value = Joi.attempt(opts, validOptions);
 
-	const snsInstances = [];
+	const snsInstances = (server.plugins.hookido && server.plugins.hookido.snsInstances) || [];
 	value.forEach((config) => init(config));
 	server.expose('snsInstances', snsInstances);
 	return;
@@ -80,5 +80,6 @@ function register(server, opts) {
 
 module.exports = {
 	name: 'hookido',
-	register
+	register,
+	multiple: true
 };
