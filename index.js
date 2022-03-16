@@ -1,6 +1,6 @@
 'use strict';
 
-const Joi = require('@hapi/joi');
+const Joi = require('joi');
 const Hoek = require('@hapi/hoek');
 const SNS = require('./lib/sns');
 const handlers = require('./handlers');
@@ -25,11 +25,10 @@ const validOptions = Joi.array().items(Joi.object({
 })).single();
 
 function register(server, opts) {
-	const results = Joi.validate(opts, validOptions);
-	Hoek.assert(!results.error, results.error);
+	const value = Joi.attempt(opts, validOptions);
 
-	const snsInstances = [];
-	results.value.forEach((config) => init(config));
+	const snsInstances = (server.plugins.hookido && server.plugins.hookido.snsInstances) || [];
+	value.forEach((config) => init(config));
 	server.expose('snsInstances', snsInstances);
 	return;
 
@@ -81,5 +80,6 @@ function register(server, opts) {
 
 module.exports = {
 	name: 'hookido',
-	register
+	register,
+	multiple: true
 };
