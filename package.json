@@ -31,21 +31,21 @@
   },
   "homepage": "https://github.com/martinj/hookido",
   "dependencies": {
-    "@hapi/hoek": "^8.0.2",
-    "@hapi/joi": "^15.1.0",
-    "aws-sdk": "^2.486.0",
-    "bluebird": "^3.5.5",
+    "@hapi/hoek": "^9.2.1",
+    "aws-sdk": "^2.1094.0",
+    "bluebird": "^3.7.2",
+    "joi": "^17.6.0",
     "request-prom": "^4.0.1",
     "sns-validator": "^0.3.4"
   },
   "devDependencies": {
     "@aptoma/eslint-config": "^7.0.1",
-    "@hapi/hapi": "^18.3.1",
-    "chai": "^4.2.0",
-    "eslint": "^6.0.1",
-    "mocha": "^6.1.4",
-    "nock": "^10.0.6",
-    "nyc": "^14.1.1",
+    "@hapi/hapi": "^20.2.1",
+    "chai": "^4.3.6",
+    "eslint": "^8.11.0",
+    "mocha": "^9.2.2",
+    "nock": "^13.2.4",
+    "nyc": "^15.1.0",
     "release-it": "^2.7.3"
   }
 }
