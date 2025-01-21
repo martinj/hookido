@@ -1,298 +1,221 @@
 'use strict';
 
-const nock = require('nock');
-const expect = require('chai').expect;
+const {mockClient} = require('aws-sdk-client-mock');
+const {
+	SNSClient,
+	SubscribeCommand,
+	SetTopicAttributesCommand,
+	ListSubscriptionsByTopicCommand,
+	SetSubscriptionAttributesCommand
+} = require('@aws-sdk/client-sns');
 const SNS = require('../../lib/sns');
+const {expect} = require('chai');
 
 describe('SNS', () => {
 	let sns;
+	let snsMock;
 
 	beforeEach(() => {
-		sns = new SNS({
-			region: 'eu-west-1',
-			accessKeyId: 'a',
-			secretAccessKey: 'a'
-		});
+		snsMock = mockClient(SNSClient);
+		sns = new SNS({region: 'eu-west-1'});
+	});
+
+	afterEach(() => {
+		snsMock.reset();
 	});
 
 	describe('#validatePayload', () => {
-
-		it('rejects on invalid JSON', (done) => {
-
-			sns
-				.validatePayload('ada')
-				.catch((err) => {
-					expect(err.message).to.equal('Invalid SNS payload: Unexpected token a in JSON at position 0');
-					return sns.validatePayload(null);
-				})
-				.catch((err) => {
-
-					expect(err.message).to.equal('Invalid SNS payload: Not valid JSON');
-					done();
-
-				});
-
+		it('rejects on invalid JSON', async () => {
+			try {
+				await sns.validatePayload('ada');
+				throw new Error('Expected error');
+			} catch (err) {
+				expect(err.message).to.match(/Invalid SNS payload: Unexpected token/);
+			}
 		});
 
-		it('rejects on invalid payload', (done) => {
-
-			sns
-				.validatePayload('{"foo":"bar"}')
-				.catch((err) => {
-
-					expect(err.message).to.equal('Message missing required keys.');
-					done();
-
-				});
-
+		it('rejects on null payload', async () => {
+			try {
+				await sns.validatePayload(null);
+				throw new Error('Expected error');
+			} catch (err) {
+				expect(err.message).to.equal('Invalid SNS payload: Not valid JSON');
+			}
 		});
 
-		it('accepts object or array', () => {
-
-			return sns
-				.validatePayload([], true)
-				.then((data) => expect(data).to.deep.equal([]))
-				.then(() => sns.validatePayload({}, true))
-				.then((data) => expect(data).to.deep.equal({}));
-
+		it('rejects on invalid payload', async () => {
+			try {
+				await sns.validatePayload('{"foo":"bar"}');
+				throw new Error('Expected error');
+			} catch (err) {
+				expect(err.message).to.equal('Message missing required keys.');
+			}
 		});
 
-		it('skipValidation skips SNS message validation only parses', () => {
-
-			return sns
-				.validatePayload('{"foo":"bar"}', true)
-				.then((data) => {
-					expect(data).to.deep.equal({foo: 'bar'});
-				});
-
+		it('accepts array', async () => {
+			const data = await sns.validatePayload([], true);
+			expect(data).to.deep.equal([]);
 		});
 
+		it('accepts object', async () => {
+			const data = await sns.validatePayload({}, true);
+			expect(data).to.deep.equal({});
+		});
+
+		it('skipValidation skips SNS message validation only parses', async () => {
+			const data = await sns.validatePayload('{"foo":"bar"}', true);
+			expect(data).to.deep.equal({foo: 'bar'});
+		});
 	});
 
 	describe('#subscribe', () => {
+		it('sends subscribe request', async () => {
+			snsMock.on(SubscribeCommand).resolves({
+				SubscriptionArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id'
+			});
 
-		afterEach(() => nock.cleanAll());
+			await sns.subscribe(
+				'arn:aws:sns:eu-west-1:111111111111:mytopic',
+				'HTTP',
+				'http://foobar.com'
+			);
 
-		it('sends subscribe request', () => {
-
-			const req = nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=Subscribe&Endpoint=http%3A%2F%2Ffoobar.com&Protocol=HTTP&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200);
-
-			return sns
-				.subscribe('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foobar.com')
-				.then(() => {
-
-					expect(req.isDone()).to.be.true;
-
-				});
+			expect(snsMock.calls()).length(1);
+			const [subscribeCall] = snsMock.calls();
+			expect(subscribeCall.args[0].input).to.deep.equal({
+				TopicArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic',
+				Protocol: 'HTTP',
+				Endpoint: 'http://foobar.com'
+			});
 		});
-
 	});
 
 	describe('#setTopicAttributes', () => {
+		it('sets topic attributes sequentially', async () => {
+			snsMock.on(SetTopicAttributesCommand).resolves({});
 
-		afterEach(() => nock.cleanAll());
+			await sns.setTopicAttributes(
+				'arn:aws:sns:eu-west-1:111111111111:mytopic',
+				{
+					DisplayName: 'My Topic',
+					Policy: '{"Version":"2012-10-17"}'
+				}
+			);
 
-		it('sends setTopicAttributes request', () => {
+			expect(snsMock.calls()).length(2);
+			const calls = snsMock.calls();
 
-			const firstReq = nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=SetTopicAttributes&AttributeName=HTTPSuccessFeedbackRoleArn&AttributeValue=arn%3Aaws%3Aiam%3A%3Axxxx%3Arole%2FmyRole&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200);
+			expect(calls[0].args[0].input).to.deep.equal({
+				TopicArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic',
+				AttributeName: 'DisplayName',
+				AttributeValue: 'My Topic'
+			});
 
-			const secondReq = nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=SetTopicAttributes&AttributeName=HTTPSuccessFeedbackSampleRate&AttributeValue=100&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200);
-
-			return sns
-				.setTopicAttributes('arn:aws:sns:eu-west-1:111111111111:mytopic', {
-					HTTPSuccessFeedbackRoleArn: 'arn:aws:iam::xxxx:role/myRole',
-					HTTPSuccessFeedbackSampleRate: '100'
-				})
-				.then(() => {
-
-					expect(firstReq.isDone()).to.be.true;
-					expect(secondReq.isDone()).to.be.true;
-
-				});
-
+			expect(calls[1].args[0].input).to.deep.equal({
+				TopicArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic',
+				AttributeName: 'Policy',
+				AttributeValue: '{"Version":"2012-10-17"}'
+			});
 		});
-
-	});
-
-	describe('#setSubscriptionAttributes', () => {
-
-		afterEach(() => nock.cleanAll());
-
-		it('sends setSubscriptionAttributes request', () => {
-
-			const firstReq = nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=SetSubscriptionAttributes&AttributeName=foo&AttributeValue=bar&SubscriptionArn=arn&Version=2010-03-31')
-				.reply(200);
-
-			const secondReq = nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=SetSubscriptionAttributes&AttributeName=bar&AttributeValue=foo&SubscriptionArn=arn&Version=2010-03-31')
-				.reply(200);
-
-			return sns
-				.setSubscriptionAttributes('arn', {
-					foo: 'bar',
-					bar: 'foo'
-				})
-				.then(() => {
-
-					expect(firstReq.isDone()).to.be.true;
-					expect(secondReq.isDone()).to.be.true;
-
-				});
-
-		});
-
 	});
 
 	describe('#findSubscriptionArn', () => {
+		it('finds subscription arn', async () => {
+			snsMock.on(ListSubscriptionsByTopicCommand).resolves({
+				Subscriptions: [{
+					SubscriptionArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id',
+					Protocol: 'HTTP',
+					Endpoint: 'http://foobar.com'
+				}]
+			});
 
-		afterEach(() => nock.cleanAll());
+			const arn = await sns.findSubscriptionArn(
+				'arn:aws:sns:eu-west-1:111111111111:mytopic',
+				'HTTP',
+				'http://foobar.com'
+			);
 
-		it('rejects with error containing code NOT_FOUND if not found', (done) => {
-
-			nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200, `
-					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
-						<ListSubscriptionsByTopicResult>
-							<Subscriptions>
-								<member>
-									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
-									<Protocol>email</Protocol>
-									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
-									<Owner>123456789012</Owner>
-									<Endpoint>example@amazon.com</Endpoint>
-								</member>
-							</Subscriptions>
-						</ListSubscriptionsByTopicResult>
-					 </ListSubscriptionsByTopicResponse>
-				`);
-
-			sns
-				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
-				.catch((err) => {
-
-					expect(err.code).to.equal('NOT_FOUND');
-					done();
-
-				});
-
+			expect(arn).to.equal('arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id');
+			expect(snsMock.calls()).length(1);
+			expect(snsMock.calls()[0].args[0].input).to.deep.equal({
+				TopicArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic'
+			});
 		});
 
-		it('rejects with error containing code PENDING if subscription exists but is pending confirmation', (done) => {
+		it('handles pending confirmation', async () => {
+			snsMock.on(ListSubscriptionsByTopicCommand).resolves({
+				Subscriptions: [{
+					SubscriptionArn: 'PendingConfirmation',
+					Protocol: 'HTTP',
+					Endpoint: 'http://foobar.com'
+				}]
+			});
 
-			nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200, `
-					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
-						<ListSubscriptionsByTopicResult>
-							<Subscriptions>
-								<member>
-									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
-									<Protocol>http</Protocol>
-									<SubscriptionArn>PendingConfirmation</SubscriptionArn>
-									<Owner>123456789012</Owner>
-									<Endpoint>http://foo.com/bar</Endpoint>
-								</member>
-							</Subscriptions>
-						</ListSubscriptionsByTopicResult>
-					 </ListSubscriptionsByTopicResponse>
-				`);
-
-			sns
-				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
-				.catch((err) => {
-
-					expect(err.code).to.equal('PENDING');
-					done();
-
-				});
+			try {
+				await sns.findSubscriptionArn(
+					'arn:aws:sns:eu-west-1:111111111111:mytopic',
+					'HTTP',
+					'http://foobar.com'
+				);
+				throw new Error('Should have thrown');
+			} catch (err) {
+				expect(err.code).to.equal('PENDING');
+				expect(err.message).to.equal('Subscription is pending confirmation');
+			}
 		});
 
-
-		it('handles NextToken for paged results', () => {
-
-			nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200, `
-					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
-						<ListSubscriptionsByTopicResult>
-							<Subscriptions>
-								<member>
-									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
-									<Protocol>email</Protocol>
-									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
-									<Owner>123456789012</Owner>
-									<Endpoint>fo@foo.com</Endpoint>
-								</member>
-							</Subscriptions>
-							<NextToken>foo</NextToken>
-						</ListSubscriptionsByTopicResult>
-					 </ListSubscriptionsByTopicResponse>
-				`)
-				.post('/', 'Action=ListSubscriptionsByTopic&NextToken=foo&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200, `
-					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
-						<ListSubscriptionsByTopicResult>
-							<Subscriptions>
-								<member>
-									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
-									<Protocol>http</Protocol>
-									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
-									<Owner>123456789012</Owner>
-									<Endpoint>http://foo.com/bar</Endpoint>
-								</member>
-							</Subscriptions>
-							<NextToken>foo</NextToken>
-						</ListSubscriptionsByTopicResult>
-					 </ListSubscriptionsByTopicResponse>
-				`);
-
-			return sns
-				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
-				.then((arn) => {
-
-					expect(arn).to.equal('arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca');
-
+		it('handles pagination', async () => {
+			snsMock
+				.on(ListSubscriptionsByTopicCommand)
+				.resolvesOnce({
+					NextToken: 'next-token',
+					Subscriptions: []
+				})
+				.resolvesOnce({
+					Subscriptions: [{
+						SubscriptionArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id',
+						Protocol: 'HTTP',
+						Endpoint: 'http://foobar.com'
+					}]
 				});
 
+			const arn = await sns.findSubscriptionArn(
+				'arn:aws:sns:eu-west-1:111111111111:mytopic',
+				'HTTP',
+				'http://foobar.com'
+			);
+
+			expect(arn).to.equal('arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id');
+			expect(snsMock.calls()).length(2);
 		});
+	});
 
-		it('resolves with the subscription arn if found', () => {
+	describe('#setSubscriptionAttributes', () => {
+		it('sets subscription attributes sequentially', async () => {
+			snsMock.on(SetSubscriptionAttributesCommand).resolves({});
 
-			nock('https://sns.eu-west-1.amazonaws.com:443')
-				.post('/', 'Action=ListSubscriptionsByTopic&TopicArn=arn%3Aaws%3Asns%3Aeu-west-1%3A111111111111%3Amytopic&Version=2010-03-31')
-				.reply(200, `
-					<ListSubscriptionsByTopicResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
-						<ListSubscriptionsByTopicResult>
-							<Subscriptions>
-								<member>
-									<TopicArn>arn:aws:sns:us-east-1:123456789012:My-Topic</TopicArn>
-									<Protocol>http</Protocol>
-									<SubscriptionArn>arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca</SubscriptionArn>
-									<Owner>123456789012</Owner>
-									<Endpoint>http://foo.com/bar</Endpoint>
-								</member>
-							</Subscriptions>
-						</ListSubscriptionsByTopicResult>
-					 </ListSubscriptionsByTopicResponse>
-				`);
+			await sns.setSubscriptionAttributes(
+				'arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id',
+				{
+					RawMessageDelivery: 'true',
+					FilterPolicy: '{"event":["order_placed"]}'
+				}
+			);
 
-			return sns
-				.findSubscriptionArn('arn:aws:sns:eu-west-1:111111111111:mytopic', 'HTTP', 'http://foo.com/bar')
-				.then((arn) => {
+			expect(snsMock.calls()).length(2);
+			const calls = snsMock.calls();
 
-					expect(arn).to.equal('arn:aws:sns:us-east-1:123456789012:My-Topic:80289ba6-0fd4-4079-afb4-ce8c8260f0ca');
+			expect(calls[0].args[0].input).to.deep.equal({
+				SubscriptionArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id',
+				AttributeName: 'RawMessageDelivery',
+				AttributeValue: 'true'
+			});
 
-				});
-
+			expect(calls[1].args[0].input).to.deep.equal({
+				SubscriptionArn: 'arn:aws:sns:eu-west-1:111111111111:mytopic:subscription-id',
+				AttributeName: 'FilterPolicy',
+				AttributeValue: '{"event":["order_placed"]}'
+			});
 		});
-
 	});
 });

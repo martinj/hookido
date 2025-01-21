@@ -37,23 +37,22 @@ function register(server, opts) {
 		snsInstances.push(sns);
 		const subscribe = Hoek.reach(config, 'topic.subscribe');
 
-		function requestSubscription() {
-			return sns
-				.subscribe(config.topic.arn, subscribe.protocol, subscribe.endpoint)
-				.then(() => server.log(['hookido', 'subscribe'], `Subscription request sent for ${config.topic.arn}`));
-		}
-
 		if (subscribe) {
-
-			server.ext('onPostStart', () => {
-				return sns
-					.findSubscriptionArn(config.topic.arn, subscribe.protocol, subscribe.endpoint)
-					.then(() => server.log(['hookido', 'subscribe'], `Subscription already exists for ${config.topic.arn}`))
-					.catch({code: 'NOT_FOUND'}, requestSubscription)
-					.catch({code: 'PENDING'}, requestSubscription)
-					.catch((err) => server.log(['hookido', 'subscribe', 'error'], err));
+			server.ext('onPostStart', async () => {
+				try {
+					await sns.findSubscriptionArn(config.topic.arn, subscribe.protocol, subscribe.endpoint);
+					server.log(['hookido', 'subscribe'], `Subscription already exists for ${config.topic.arn}`);
+				} catch (err) {
+					if (err.code === 'NOT_FOUND' || err.code === 'PENDING') {
+						await sns
+							.subscribe(config.topic.arn, subscribe.protocol, subscribe.endpoint)
+							.then(() => server.log(['hookido', 'subscribe'], `Subscription request sent for ${config.topic.arn}`))
+							.catch((err) => server.log(['hookido', 'subscribe', 'error'], err));
+					} else {
+						server.log(['hookido', 'subscribe', 'error'], err);
+					}
+				}
 			});
-
 		}
 
 		const topicAttributes = Hoek.reach(config, 'topic.attributes');

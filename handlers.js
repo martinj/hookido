@@ -1,8 +1,6 @@
 'use strict';
 
-const Promise = require('bluebird');
 const Hoek = require('@hapi/hoek');
-const request = require('request-prom');
 
 exports.hook = (sns, {handlers, skipPayloadValidation, topic}) => {
 	handlers = Hoek.applyToDefaults({
@@ -41,9 +39,8 @@ async function confirmSubscription(sns, topicOpts, req, h, payload) {
 	}
 
 	try {
-		await request.get(payload.SubscribeURL);
+		await fetch(payload.SubscribeURL);
 		req.log(['hookido', 'info'], `SNS subscription confirmed for ${payload.TopicArn}`);
-
 	} catch (err) {
 		req.log(['hookido', 'error'], `Unable to confirm SNS subscription for ${payload.TopicArn}, err: ${err.message}`);
 		throw err;
