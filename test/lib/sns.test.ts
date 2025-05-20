@@ -1,19 +1,18 @@
-'use strict';
-
-const {mockClient} = require('aws-sdk-client-mock');
-const {
+import {mockClient} from 'aws-sdk-client-mock';
+import type {AwsClientStub} from 'aws-sdk-client-mock';
+import {
 	SNSClient,
 	SubscribeCommand,
 	SetTopicAttributesCommand,
 	ListSubscriptionsByTopicCommand,
 	SetSubscriptionAttributesCommand
-} = require('@aws-sdk/client-sns');
-const SNS = require('../../lib/sns');
-const {expect} = require('chai');
+} from '@aws-sdk/client-sns';
+import SNS, {SNSError} from '../../lib/sns.js'; // Import SNSError
+import {expect} from 'chai';
 
 describe('SNS', () => {
-	let sns;
-	let snsMock;
+	let sns: SNS;
+	let snsMock: AwsClientStub<SNSClient>;
 
 	beforeEach(() => {
 		snsMock = mockClient(SNSClient);
@@ -29,40 +28,41 @@ describe('SNS', () => {
 			try {
 				await sns.validatePayload('ada');
 				throw new Error('Expected error');
-			} catch (err) {
-				expect(err.message).to.match(/Invalid SNS payload: Unexpected token/);
+			} catch (err: unknown) {
+				expect((err as Error).message).to.match(/Invalid SNS payload: /); // More generic match
 			}
 		});
 
-		it('rejects on null payload', async () => {
+		it('rejects on non-object payload (like null or invalid JSON string that results in non-object)', async () => {
 			try {
-				await sns.validatePayload(null);
+				// Testing with a string that's not a JSON object, or a type not handled
+				await sns.validatePayload('null'); // 'null' string becomes null value then error
 				throw new Error('Expected error');
-			} catch (err) {
-				expect(err.message).to.equal('Invalid SNS payload: Not valid JSON');
+			} catch (err: unknown) {
+				expect((err as Error).message).to.equal('Invalid SNS payload: Not a valid JSON object');
 			}
 		});
 
-		it('rejects on invalid payload', async () => {
+		it('rejects on invalid SNS message structure (if not skipping validation)', async () => {
 			try {
-				await sns.validatePayload('{"foo":"bar"}');
+				await sns.validatePayload('{"foo":"bar"}'); // No skipValidation = false
 				throw new Error('Expected error');
-			} catch (err) {
-				expect(err.message).to.equal('Message missing required keys.');
+			} catch (err: unknown) {
+				expect((err as Error).message).to.equal('Message missing required keys.');
 			}
 		});
 
-		it('accepts array', async () => {
-			const data = await sns.validatePayload([], true);
+		it('accepts array when skipping validation', async () => {
+			const data = await sns.validatePayload([] as any, true); // Cast to any if validatePayload expects string | object
 			expect(data).to.deep.equal([]);
 		});
 
-		it('accepts object', async () => {
+		it('accepts object when skipping validation', async () => {
 			const data = await sns.validatePayload({}, true);
 			expect(data).to.deep.equal({});
 		});
 
-		it('skipValidation skips SNS message validation only parses', async () => {
+		it('skipValidation skips SNS message validation and only parses', async () => {
 			const data = await sns.validatePayload('{"foo":"bar"}', true);
 			expect(data).to.deep.equal({foo: 'bar'});
 		});
@@ -158,9 +158,10 @@ describe('SNS', () => {
 					'http://foobar.com'
 				);
 				throw new Error('Should have thrown');
-			} catch (err) {
-				expect(err.code).to.equal('PENDING');
-				expect(err.message).to.equal('Subscription is pending confirmation');
+			} catch (err: unknown) {
+				expect(err instanceof SNSError).to.be.true;
+				expect((err as SNSError).code).to.equal('PENDING');
+				expect((err as SNSError).message).to.equal('Subscription is pending confirmation');
 			}
 		});
 

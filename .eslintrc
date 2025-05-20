@@ -1,11 +1,36 @@
 {
-	"extends": "@aptoma/eslint-config",
+	"parser": "@typescript-eslint/parser",
+	"extends": [
+		"@aptoma/eslint-config",
+		"plugin:@typescript-eslint/recommended"
+	],
 	"parserOptions": {
-		"ecmaVersion": 2023
+		"ecmaVersion": 2023,
+		"sourceType": "module",
+		"project": "./tsconfig.json"
 	},
 	"env": {
 		"node": true,
 		"mocha": true,
 		"es6": true
-	}
+	},
+	"rules": {
+		// Add any specific rule overrides here if needed
+		"@typescript-eslint/no-explicit-any": "off", // Example: turn off no-explicit-any if it's too noisy for now
+		"@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }] // Warn on unused vars, ignore if prefixed with _
+	},
+	"overrides": [
+		{
+			"files": ["*.js"], // For JS files, if Aptoma config is not sufficient
+			"parserOptions": {
+				"sourceType": "script" // CommonJS for old .js files if any
+			}
+		},
+		{
+			"files": ["*.d.ts"],
+			"rules": {
+				"@typescript-eslint/no-explicit-any": "off" // Often 'any' is needed in d.ts files
+			}
+		}
+	]
 }

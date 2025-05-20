@@ -2,11 +2,13 @@
   "name": "hookido",
   "version": "7.0.0",
   "description": "Hapi plugin for handling AWS SNS http(s) subscriptions aka webhooks",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "lint": "eslint --ext '.js' lib test *.js",
-    "watch": "mocha --watch 'test/**/*.js' 'lib/**/*.js' '*.js' --timeout 500",
-    "test": "npm run lint && nyc --reporter=text-summary --reporter=lcov mocha --exit 'test/**/*.test.js'",
+    "lint": "eslint --ext '.js,.ts' lib test *.ts **/*.ts",
+    "watch": "tsc-watch --onSuccess \"mocha --exit 'test/**/*.test.ts'\" --watch '**/*.ts'",
+    "test": "npm run lint && npm run build && nyc --reporter=text-summary --reporter=lcov mocha --exit 'test/**/*.test.ts'",
+    "build": "tsc",
     "changelog": "git log `git describe --tags --abbrev=0`..HEAD --pretty=format:\"  * %s\"",
     "release": "npm run test && release-it -n -i patch",
     "release:minor": "npm run test && release-it -n -i minor",
@@ -31,20 +33,28 @@
   },
   "homepage": "https://github.com/martinj/hookido",
   "dependencies": {
-    "@aws-sdk/client-sns": "^3.731.1",
+    "@aws-sdk/client-sns": "^3.812.0",
     "@hapi/hoek": "^11.0.7",
     "joi": "^17.13.3",
     "sns-validator": "^0.3.5"
   },
   "devDependencies": {
     "@aptoma/eslint-config": "^7.0.1",
-    "@hapi/hapi": "^21.3.12",
+    "@hapi/hapi": "^21.4.0",
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.20",
+    "@types/sns-validator": "^0.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
     "aws-sdk-client-mock": "^4.1.0",
     "chai": "^4.5.0",
     "eslint": "^8.57.1",
     "mocha": "^11.0.1",
     "nyc": "^15.1.0",
     "release-it": "^2.7.3",
-    "sinon": "^19.0.2"
+    "sinon": "^19.0.2",
+    "tsc-watch": "^6.3.1",
+    "typescript": "^5.8.3"
   }
 }
